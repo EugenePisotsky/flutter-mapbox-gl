@@ -182,6 +182,7 @@ class MapboxMapController extends ChangeNotifier {
   /// The returned set will be a detached snapshot of the symbols collection.
   Set<Symbol> get symbols => Set<Symbol>.from(_symbols.values);
   final Map<String, Symbol> _symbols = <String, Symbol>{};
+  final Map<String, AnimatedMarker> _animatedMarkers = <String, AnimatedMarker>{};
 
   /// Callbacks to receive tap events for lines placed on this map.
   final ArgumentCallbacks<Line> onLineTapped = ArgumentCallbacks<Line>();
@@ -338,6 +339,25 @@ class MapboxMapController extends ChangeNotifier {
     return symbols;
   }
 
+
+  Future<AnimatedMarker> addAnimatedMarker(AnimatedMarkerOptions options, [Map data]) async {
+    List<AnimatedMarker> result = await addAnimatedMarkers([options], [data]);
+
+    return result.first;
+  }
+
+
+  Future<List<AnimatedMarker>> addAnimatedMarkers(List<AnimatedMarkerOptions> options, [List<Map> data]) async {
+    final List<AnimatedMarkerOptions> effectiveOptions = options.map(
+        (o) => AnimatedMarkerOptions.defaultOptions.copyWith(o)
+    ).toList();
+
+    final symbols = await MapboxGlPlatform.getInstance(_id).addAnimatedMarkers(effectiveOptions, data);
+    symbols.forEach((s) => _animatedMarkers[s.id] = s);
+    notifyListeners();
+    return symbols;
+  }
+
   /// Updates the specified [symbol] with the given [changes]. The symbol must
   /// be a current member of the [symbols] set.
   ///
@@ -350,6 +370,15 @@ class MapboxMapController extends ChangeNotifier {
     assert(_symbols[symbol.id] == symbol);
     assert(changes != null);
     await MapboxGlPlatform.getInstance(_id).updateSymbol(symbol, changes);
+    symbol.options = symbol.options.copyWith(changes);
+    notifyListeners();
+  }
+
+  Future<void> updateAnimatedMarker(AnimatedMarker symbol, AnimatedMarkerOptions changes) async {
+    assert(symbol != null);
+    assert(_animatedMarkers[symbol.id] == symbol);
+    assert(changes != null);
+    await MapboxGlPlatform.getInstance(_id).updateAnimatedMarker(symbol, changes);
     symbol.options = symbol.options.copyWith(changes);
     notifyListeners();
   }
@@ -390,6 +419,13 @@ class MapboxMapController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> removeAnimatedMarker(AnimatedMarker symbol) async {
+    assert(symbol != null);
+    assert(_animatedMarkers[symbol.id] == symbol);
+    await _removeAnimatedMarkers([symbol.id]);
+    notifyListeners();
+  }
+
   /// Removes all [symbols] from the map.
   ///
   /// Change listeners are notified once all symbols have been removed on the
@@ -411,6 +447,11 @@ class MapboxMapController extends ChangeNotifier {
   Future<void> _removeSymbols(Iterable<String> ids) async {
     await MapboxGlPlatform.getInstance(_id).removeSymbols(ids);
     _symbols.removeWhere((k, s) => ids.contains(k));
+  }
+
+  Future<void> _removeAnimatedMarkers(Iterable<String> ids) async {
+    await MapboxGlPlatform.getInstance(_id).removeAnimatedMarkers(ids);
+    _animatedMarkers.removeWhere((k, s) => ids.contains(k));
   }
 
   /// Adds a line to the map, configured using the specified custom [options].
@@ -585,7 +626,7 @@ class MapboxMapController extends ChangeNotifier {
   Future<List> queryRenderedFeatures(
       Point<double> point, List<String> layerIds, List<Object> filter) async {
     return MapboxGlPlatform.getInstance(_id)
-        .queryRenderedFeatures(point, layerIds, filter);
+        .queryRenderedFeatures(point, layerIds, filter.first);
   }
 
   Future<List> queryRenderedFeaturesInRect(

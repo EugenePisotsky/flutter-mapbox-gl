@@ -182,6 +182,28 @@ class MethodChannelMapboxGl extends MapboxGlPlatform {
   }
 
   @override
+  Future<List<AnimatedMarker>> addAnimatedMarkers(List<AnimatedMarkerOptions> options, [List<Map> data]) async {
+    final List<dynamic> symbolIds = await _channel.invokeMethod(
+      'custom#addAllAnimatedMarkers',
+      <String, dynamic>{
+        'options': options.map((o) => o.toJson()).toList(),
+      },
+    );
+    final List<AnimatedMarker> symbols = symbolIds.asMap().map(
+        (i, id) => MapEntry(
+        i,
+        AnimatedMarker(
+          id,
+          options.elementAt(i),
+          data != null && data.length > i ? data.elementAt(i) : null
+        )
+      )
+    ).values.toList();
+
+    return symbols;
+  }
+
+  @override
   Future<List<Symbol>> addSymbols(List<SymbolOptions> options, [List<Map> data]) async {
     final List<dynamic> symbolIds = await _channel.invokeMethod(
       'symbols#addAll',
@@ -201,6 +223,14 @@ class MethodChannelMapboxGl extends MapboxGlPlatform {
     ).values.toList();
 
     return symbols;
+  }
+
+  @override
+  Future<void> updateAnimatedMarker(AnimatedMarker symbol, AnimatedMarkerOptions changes) async {
+    await _channel.invokeMethod('custom#updateAnimatedMarker', <String, dynamic>{
+      'symbol': symbol.id,
+      'options': changes.toJson(),
+    });
   }
 
   @override
@@ -225,6 +255,13 @@ class MethodChannelMapboxGl extends MapboxGlPlatform {
   @override
   Future<void> removeSymbols(Iterable<String> ids) async {
     await _channel.invokeMethod('symbols#removeAll', <String, dynamic>{
+      'symbols': ids.toList(),
+    });
+  }
+
+  @override
+  Future<void> removeAnimatedMarkers(Iterable<String> ids) async {
+    await _channel.invokeMethod('custom#removeAllAnimatedMarkers', <String, dynamic>{
       'symbols': ids.toList(),
     });
   }

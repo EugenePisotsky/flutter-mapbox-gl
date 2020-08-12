@@ -20,6 +20,8 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     private var symbolAnnotationController: MGLSymbolAnnotationController?
     private var circleAnnotationController: MGLCircleAnnotationController?
     private var lineAnnotationController: MGLLineAnnotationController?
+    
+    private var animatedMarkers: [AnimatedMarker] = []
 
     func view() -> UIView {
         return mapView
@@ -386,9 +388,69 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 self.mapView.style?.setImage(image, forName: name)
             }
             result(nil)
+        case "custom#addAllAnimatedMarkers":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+
+            if let options = arguments["options"] as? [[String: Any]] {
+                var symbols: [AnimatedMarker] = [];
+                for o in options {
+                    if let symbol = getAnimatedMarkerForOptions(options: o)  {
+                        symbols.append(symbol)
+                        animatedMarkers.append(symbol)
+                    }
+                }
+
+                result(symbols.map { $0.identifier })
+            } else {
+                result(nil)
+            }
+        case "custom#updateAnimatedMarker":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let symbolId = arguments["symbol"] as? String else { return }
+
+            for symbol in animatedMarkers {
+                if symbol.identifier == symbolId {
+                    Convert.interpretAnimatedMarkerOptions(options: arguments["options"], delegate: symbol)
+                    break;
+                }
+            }
+            result(nil)
+        case "symbols#removeAllAnimatedMarkers":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let symbolIds = arguments["symbols"] as? [String] else { return }
+
+            for symbol in animatedMarkers{
+                if symbolIds.contains(symbol.identifier) {
+                    symbol.destroy()
+                }
+            }
+            
+            animatedMarkers.removeAll { symbolIds.contains($0.identifier) }
+            
+            result(nil)
         default:
             result(FlutterMethodNotImplemented)
         }
+    }
+    
+    private func getAnimatedMarkerForOptions(options: [String: Any]) -> AnimatedMarker? {
+        // Parse geometry
+        if let geometry = options["geometry"] as? [Double] {
+            // Convert geometry to coordinate and create symbol.
+            let coordinate = CLLocationCoordinate2DMake(geometry[0], geometry[1])
+            let symbol = AnimatedMarker(mapInstance: mapView)
+            
+            // Load icon image from asset if an icon name is supplied.
+            if let iconImage = options["iconImage"] as? String {
+                addIconImageToMap(iconImageName: iconImage)
+            }
+            
+            symbol.create(coords: coordinate)
+            Convert.interpretAnimatedMarkerOptions(options: options, delegate: symbol)
+            symbol.addToMap()
+            return symbol
+        }
+        return nil
     }
     
     private func getSymbolForOptions(options: [String: Any]) -> MGLSymbolStyleAnnotation? {
@@ -490,6 +552,31 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     
     // This is required in order to hide the default Maps SDK pin
     func mapView(_ mapView: MGLMapView, viewFor annotation: MGLAnnotation) -> MGLAnnotationView? {
+        if (annotation is MGLAnimatedPointAnnotation) {
+            let symbol = annotation as! MGLAnimatedPointAnnotation
+            // Use the point annotation’s longitude value (as a string) as the reuse identifier for its view.
+            let reuseIdentifier = symbol.mapId
+            
+            // For better performance, always try to reuse existing annotations.
+            var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: reuseIdentifier ?? "animatedMarker")
+            
+            // If there’s no reusable annotation view available, initialize a new one.
+            if annotationView == nil {
+                annotationView = AnimatedAnnotationView(reuseIdentifier: reuseIdentifier)
+                annotationView!.frame = CGRect(x: 0, y: 0, width: 40, height: 40)
+
+                if (symbol.image != nil) {
+                    let image = symbol.image
+                    
+                    image?.center = CGPoint(x: annotationView!.bounds.midX,
+                    y: annotationView!.bounds.midY)
+                    annotationView?.addSubview(image!)
+                }
+            }
+            
+            return annotationView
+        }
+        
         if annotation is MGLUserLocation {
             return nil
         }

@@ -140,6 +140,21 @@ class Convert {
         return MGLAltitudeForZoomLevel(zoom, mapView.camera.pitch, mapView.camera.centerCoordinate.latitude, mapView.frame.size)
     }
 
+    class func interpretAnimatedMarkerOptions(options: Any?, delegate: AnimatedMarker) {
+        guard let options = options as? [String: Any] else { return }
+        
+        if let iconImage = options["iconImage"] as? String {        
+            delegate.updateIconImage(name: iconImage)
+        }
+        if let geometry = options["geometry"] as? [Double] {
+            let newCoord = CLLocationCoordinate2DMake(geometry[0], geometry[1])
+            delegate.updateCoordinates(coords: newCoord, duration: geometry[2] / 1000.0)
+        }
+        if let rotation = options["rotation"] as? [Double] {
+            delegate.updateRotation(rotation: rotation[0], duration: rotation[1] / 1000.0)
+        }
+    }
+    
     class func interpretSymbolOptions(options: Any?, delegate: MGLSymbolStyleAnnotation) {
         guard let options = options as? [String: Any] else { return }
         if let iconSize = options["iconSize"] as? CGFloat {
