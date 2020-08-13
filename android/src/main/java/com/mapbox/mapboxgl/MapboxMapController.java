@@ -130,6 +130,8 @@ final class MapboxMapController
   private LocationEngine locationEngine = null;
   private LocalizationPlugin localizationPlugin;
   private Style style;
+  private List<AnimatedMarker> animatedMarkers = new ArrayList<AnimatedMarker>();
+  private AnimatedRoute animatedRoute;
 
   MapboxMapController(
     int id,
@@ -145,7 +147,7 @@ final class MapboxMapController
     this.activityState = activityState;
     this.registrar = registrar;
     this.styleStringInitial = styleStringInitial;
-    this.mapView = new MapView(context, options);
+    this.mapView = new MapView(context, options.textureMode(true));
     this.symbols = new HashMap<>();
     this.lines = new HashMap<>();
     this.circles = new HashMap<>();
@@ -324,9 +326,9 @@ final class MapboxMapController
     @Override
     public void onStyleLoaded(@NonNull Style style) {
       MapboxMapController.this.style = style;
-      enableLineManager(style);
-      enableSymbolManager(style);
-      enableCircleManager(style);
+      // enableLineManager(style);
+      // enableSymbolManager(style);
+      // enableCircleManager(style);
       if (myLocationEnabled) {
         enableLocationComponent(style);
       }
@@ -350,7 +352,7 @@ final class MapboxMapController
         .build();
       locationComponent = mapboxMap.getLocationComponent();
       locationComponent.activateLocationComponent(context, style, locationComponentOptions);
-      locationComponent.setLocationComponentEnabled(true);
+      // locationComponent.setLocationComponentEnabled(true);
       // locationComponent.setRenderMode(RenderMode.COMPASS); // remove or keep default?
       locationComponent.setLocationEngine(locationEngine);
       locationComponent.setMaxAnimationFps(30);
@@ -738,6 +740,89 @@ final class MapboxMapController
           result.error("STYLE IS NULL", "The style is null. Has onStyleLoaded() already been invoked?", null);
         }
         style.addImage(call.argument("name"), BitmapFactory.decodeByteArray(call.argument("bytes"),0,call.argument("length")), call.argument("sdf"));
+        result.success(null);
+        break;
+      }
+      case "custom#addAllAnimatedMarkers": {
+        List<String> newSymbolIds = new ArrayList<String>();
+        final List<Object> options = call.argument("options");
+        if (options != null) {
+          for (Object o : options) {
+            AnimatedMarker animatedMarker = new AnimatedMarker(mapboxMap);
+            animatedMarker.create();
+            Convert.interpretAnimatedMarkerOptions(o, animatedMarker);
+            animatedMarkers.add(animatedMarker);
+
+            newSymbolIds.add(animatedMarker.identifier);
+          }
+        }
+        result.success(newSymbolIds);
+        break;
+      }
+      case "custom#updateAnimatedMarker": {
+        final String symbolId = call.argument("symbol");
+        for (AnimatedMarker marker : animatedMarkers) {
+          if (marker.identifier.equals(symbolId)) {
+            Convert.interpretAnimatedMarkerOptions(call.argument("options"), marker);
+          }
+        }
+        result.success(null);
+        break;
+      }
+      case "custom#removeAllAnimatedMarkers": {
+        final ArrayList<String> symbolIds = call.argument("symbols");
+
+        for (AnimatedMarker marker : animatedMarkers) {
+          for(String symbolId : symbolIds){
+            if (symbolId.equals(marker.identifier)) {
+              marker.destroy();
+              animatedMarkers.remove(marker);
+            }
+          }
+        }
+        result.success(null);
+        break;
+      }
+      case "custom#followLine": {
+        final String markerId = call.argument("markerId");
+        final String line = call.argument("line");
+        final String targetLine = call.argument("targetLine");
+
+        if (animatedRoute == null) {
+          for (AnimatedMarker marker : animatedMarkers) {
+            if (marker.identifier.equals(markerId)) {
+              animatedRoute = new AnimatedRoute(mapboxMap, marker);
+            }
+          }
+        }
+
+        animatedRoute.update(new AnimatedRouteConfiguration(
+                line, targetLine
+        ));
+
+        result.success(null);
+        break;
+      }
+      case "custom#destroyAnimatedLine": {
+        if (animatedRoute != null) {
+          animatedRoute.destroy();
+          animatedRoute = null;
+        }
+        result.success(null);
+        break;
+      }
+      case "custom#getAnimatedMarkerLocation": {
+        final String symbolId = call.argument("markerId");
+
+        for (AnimatedMarker marker : animatedMarkers) {
+          if (marker.identifier.equals(symbolId)) {
+            Map<String, Double> hashMapLatLng = new HashMap<>();
+            hashMapLatLng.put("latitude", marker.currentLocation().latitude());
+            hashMapLatLng.put("longitude", marker.currentLocation().longitude());
+            result.success(hashMapLatLng);
+            return;
+          }
+        }
         result.success(null);
         break;
       }

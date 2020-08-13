@@ -47,6 +47,9 @@ class AnimatedMarker {
     var imageName: String?
     var image: UIImageView?
     
+    var animatedFrom: CLLocationCoordinate2D?
+    var animatedTo: CLLocationCoordinate2D?
+    
     init(mapInstance: MGLMapView) {
         self.identifier = randomString(length: 30)
         self.mapInstance = mapInstance
@@ -73,9 +76,15 @@ class AnimatedMarker {
     }
     
     func updateCoordinates(coords: CLLocationCoordinate2D, duration: Double) {
-        if (coords != self.annotation?.coordinate) {
-            animationCoord?.stopAnimation(false)
+        animationCoord?.stopAnimation(false)
+        if (!(animationCoord?.isRunning ?? true)) {
             animationCoord?.finishAnimation(at: .current)
+        }
+        
+        if (coords != self.annotation?.coordinate) {
+            // @todo check if no bug when finish earlier
+            animatedFrom = self.annotation?.coordinate
+            animatedTo = coords
             
             animationCoord = UIViewPropertyAnimator(duration: duration, curve: .linear) {
                 self.annotation!.coordinate = coords
@@ -94,6 +103,25 @@ class AnimatedMarker {
         }
         
         animationHeading?.startAnimation()
+    }
+    
+    func currentLocation() -> CLLocationCoordinate2D? {
+        if (animationCoord != nil && animationCoord?.isRunning ?? false) {
+            let fromLat: CGFloat = CGFloat(animatedFrom?.latitude ?? 0)
+            let toLat: CGFloat = CGFloat(animatedTo?.latitude ?? 0)
+            let fromLon: CGFloat = CGFloat(animatedFrom?.longitude ?? 0)
+            let toLon: CGFloat = CGFloat(animatedTo?.longitude ?? 0)
+            let fraction: CGFloat = animationCoord?.fractionComplete ?? 0
+            
+            let calculated = CLLocationCoordinate2D(
+                latitude: CLLocationDegrees(fromLat + ((toLat - fromLat) * fraction)),
+                longitude: CLLocationDegrees(fromLon + ((toLon - fromLon) * fraction))
+            )
+
+            return calculated
+        }
+
+        return annotation?.coordinate
     }
     
     func destroy() {

@@ -182,6 +182,37 @@ class MethodChannelMapboxGl extends MapboxGlPlatform {
   }
 
   @override
+  Future<void> followLine(String markerId, String route, String targetRoute) async {
+    await _channel.invokeMethod(
+      'custom#followLine',
+      <String, dynamic>{
+        'markerId': markerId,
+        'line': route,
+        'targetLine': targetRoute,
+      },
+    );
+  }
+
+  @override
+  Future<void> destroyAnimatedLine() async {
+    await _channel.invokeMethod(
+      'custom#destroyAnimatedLine',
+      <String, dynamic>{},
+    );
+  }
+
+  @override
+  Future<LatLng> getAnimatedMarkerLocation(String markerId) async {
+    Map mapLatLng =
+      await _channel.invokeMethod('custom#getAnimatedMarkerLocation', <String, dynamic>{
+      'markerId': markerId,
+    });
+    LatLng symbolLatLng =
+    new LatLng(mapLatLng['latitude'], mapLatLng['longitude']);
+    return symbolLatLng;
+  }
+
+  @override
   Future<List<AnimatedMarker>> addAnimatedMarkers(List<AnimatedMarkerOptions> options, [List<Map> data]) async {
     final List<dynamic> symbolIds = await _channel.invokeMethod(
       'custom#addAllAnimatedMarkers',

@@ -34,7 +34,7 @@ class AnimatedRotation {
   AnimatedRotation({ this.rotation, this.duration });
 
   dynamic toJson() {
-    return <double>[rotation, duration.inMilliseconds.toDouble()];
+    return <double>[rotation.toDouble(), duration.inMilliseconds.toDouble()];
   }
 }
 

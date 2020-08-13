@@ -112,6 +112,18 @@ abstract class MapboxGlPlatform {
     throw UnimplementedError('getTelemetryEnabled() has not been implemented.');
   }
 
+  Future<void> followLine(String markerId, String route, String targetRoute) async {
+    throw UnimplementedError('addSymbols() has not been implemented.');
+  }
+
+  Future<void> destroyAnimatedLine() async {
+    throw UnimplementedError('addSymbols() has not been implemented.');
+  }
+
+  Future<LatLng> getAnimatedMarkerLocation(String markerId) async {
+    throw UnimplementedError('getCircleLatLng() has not been implemented.');
+  }
+
   Future<List<AnimatedMarker>> addAnimatedMarkers(List<AnimatedMarkerOptions> options, [List<Map> data]) async {
     throw UnimplementedError('addSymbols() has not been implemented.');
   }

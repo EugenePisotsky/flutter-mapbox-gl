@@ -272,6 +272,30 @@ class Convert {
     }
   }
 
+  static void interpretAnimatedMarkerOptions(Object o, AnimatedMarker marker) {
+    final Map<?, ?> data = toMap(o);
+    final Object iconImage = data.get("iconImage");
+    if (iconImage != null) {
+      marker.updateIconImage(toString(iconImage));
+    }
+
+    final Object geometry = data.get("geometry");
+    if (geometry != null) {
+      final List<?> arr = toList(geometry);
+      LatLng latLng = toLatLng(geometry);
+      com.mapbox.geojson.Point point = com.mapbox.geojson.Point.fromLngLat(latLng.getLongitude(), latLng.getLatitude());
+
+      marker.updateCoordinates(point, toInt(arr.get(2)));
+    }
+
+    final Object rotation = data.get("rotation");
+    if (rotation != null) {
+      final List<?> arr = toList(rotation);
+      Logger.d("[MB]", arr.toString());
+      marker.updateRotation(toFloat(arr.get(0)), toInt(arr.get(1)));
+    }
+  }
+
   static void interpretSymbolOptions(Object o, SymbolOptionsSink sink) {
     final Map<?, ?> data = toMap(o);
     final Object iconSize = data.get("iconSize");

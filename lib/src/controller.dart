@@ -340,6 +340,21 @@ class MapboxMapController extends ChangeNotifier {
   }
 
 
+  Future<void> followLine(String animatedMarkerId, String route, String targetRoute) async {
+    await MapboxGlPlatform.getInstance(_id).followLine(animatedMarkerId, route, targetRoute);
+  }
+
+
+  Future<void> destroyAnimatedLine() async {
+    await MapboxGlPlatform.getInstance(_id).destroyAnimatedLine();
+  }
+
+
+  Future<LatLng> getAnimatedMarkerLocation(String markerId) async {
+    return MapboxGlPlatform.getInstance(_id).getAnimatedMarkerLocation(markerId);
+  }
+
+
   Future<AnimatedMarker> addAnimatedMarker(AnimatedMarkerOptions options, [Map data]) async {
     List<AnimatedMarker> result = await addAnimatedMarkers([options], [data]);
 

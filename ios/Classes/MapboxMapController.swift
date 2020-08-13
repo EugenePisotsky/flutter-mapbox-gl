@@ -22,6 +22,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     private var lineAnnotationController: MGLLineAnnotationController?
     
     private var animatedMarkers: [AnimatedMarker] = []
+    private var animatedRoute: AnimatedRoute?
 
     func view() -> UIView {
         return mapView
@@ -415,7 +416,7 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
                 }
             }
             result(nil)
-        case "symbols#removeAllAnimatedMarkers":
+        case "custom#removeAllAnimatedMarkers":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let symbolIds = arguments["symbols"] as? [String] else { return }
 
@@ -428,6 +429,36 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             animatedMarkers.removeAll { symbolIds.contains($0.identifier) }
             
             result(nil)
+        case "custom#followLine":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let markerId = arguments["markerId"] as? String else { return }
+            guard let line = arguments["line"] as? String else { return }
+            guard let targetLine = arguments["targetLine"] as? String else { return }
+
+            if (animatedRoute == nil) {
+                guard let marker = (animatedMarkers.first { $0.identifier == markerId }) else { return }
+                
+                animatedRoute = AnimatedRoute(mapInstance: mapView, marker: marker)
+            }
+            
+            animatedRoute?.update(conf: AnimatedRouteConfiguration(
+                line: line, targetLine: targetLine
+            ))
+            
+            result(nil)
+        case "custom#destroyAnimatedLine":
+            animatedRoute?.destroy()
+            animatedRoute = nil
+            
+            result(nil)
+        case "custom#getAnimatedMarkerLocation":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let markerId = arguments["markerId"] as? String else { return }
+            
+            guard let marker = (animatedMarkers.first { $0.identifier == markerId }) else { return }
+            let coords = marker.currentLocation()
+            
+            result(["latitude": coords?.latitude, "longitude": coords?.longitude])
         default:
             result(FlutterMethodNotImplemented)
         }
