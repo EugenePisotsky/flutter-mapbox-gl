@@ -2,6 +2,16 @@ import Mapbox
 import MapboxAnnotationExtension
 
 class Convert {
+    class func toImage(data: [Any]?) -> UIImage? {
+        guard let unwrappedData = data as [Any]? else { return nil }
+        guard let byteData = unwrappedData[1] as? FlutterStandardTypedData else { return nil };
+
+        let scale = UIScreen.main.scale
+        let image = UIImage(data: byteData.data, scale: scale)
+        
+        return image
+    }
+    
     class func interpretMapboxMapOptions(options: Any?, delegate: MapboxMapOptionsSink) {
         guard let options = options as? [String: Any] else { return }
         if let cameraTargetBounds = options["cameraTargetBounds"] as? [[[Double]]] {
@@ -67,8 +77,8 @@ class Convert {
             return camera
         case "newLatLngBounds":
             guard let bounds = cameraUpdate[1] as? [[Double]] else { return nil }
-            guard let padding = cameraUpdate[2] as? CGFloat else { return nil }
-            return mapView.cameraThatFitsCoordinateBounds(MGLCoordinateBounds.fromArray(bounds), edgePadding: UIEdgeInsets.init(top: padding, left: padding, bottom: padding, right: padding))
+            guard let padding = cameraUpdate[2] as? [CGFloat] else { return nil }
+            return mapView.cameraThatFitsCoordinateBounds(MGLCoordinateBounds.fromArray(bounds), edgePadding: UIEdgeInsets.init(top: padding[0], left: padding[1], bottom: padding[2], right: padding[3]))
         case "newLatLngZoom":
             guard let coordinate = cameraUpdate[1] as? [Double] else { return nil }
             guard let zoom = cameraUpdate[2] as? Double else { return nil }
@@ -152,6 +162,21 @@ class Convert {
         }
         if let rotation = options["rotation"] as? [Double] {
             delegate.updateRotation(rotation: rotation[0], duration: rotation[1] / 1000.0)
+        }
+    }
+    
+    class func interpretFloatingLabelOptions(options: Any?, delegate: FloatingLabel) {
+        guard let options = options as? [String: Any] else { return }
+
+        if let geometry = options["geometry"] as? [Double] {
+            let newCoord = CLLocationCoordinate2DMake(geometry[0], geometry[1])
+            delegate.updateSourceCoordinates(coords: newCoord)
+        }
+        if let image = options["image"] as? [Double] {
+            delegate.updateLabel(width: options["width"] as! Float, height: options["height"] as! Float, image: toImage(data: image) ?? delegate.image)
+        }
+        if let icon = options["icon"] as? String {
+            delegate.updateIcon(icon: icon)
         }
     }
     

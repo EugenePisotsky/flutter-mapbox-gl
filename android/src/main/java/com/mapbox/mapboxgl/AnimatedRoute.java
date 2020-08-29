@@ -158,7 +158,7 @@ public class AnimatedRoute {
                 }
             });
 
-            animatedMarker.updateRotation(bearing, 200);
+            animatedMarker.updateRotation(bearing, 1000);
 
             routeIndex++;
         }

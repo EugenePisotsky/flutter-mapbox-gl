@@ -183,6 +183,7 @@ class MapboxMapController extends ChangeNotifier {
   Set<Symbol> get symbols => Set<Symbol>.from(_symbols.values);
   final Map<String, Symbol> _symbols = <String, Symbol>{};
   final Map<String, AnimatedMarker> _animatedMarkers = <String, AnimatedMarker>{};
+  final Map<String, FloatingLabel> _floatingLabels = <String, FloatingLabel>{};
 
   /// Callbacks to receive tap events for lines placed on this map.
   final ArgumentCallbacks<Line> onLineTapped = ArgumentCallbacks<Line>();
@@ -327,6 +328,10 @@ class MapboxMapController extends ChangeNotifier {
     return result.first;
   }
 
+  Future<Offset> getLabelAnchor(String id) async {
+    return MapboxGlPlatform.getInstance(_id).getLabelAnchor(id);
+  }
+
 
   Future<List<Symbol>> addSymbols(List<SymbolOptions> options, [List<Map> data]) async {
     final List<SymbolOptions> effectiveOptions = options.map(
@@ -373,6 +378,24 @@ class MapboxMapController extends ChangeNotifier {
     return symbols;
   }
 
+  Future<FloatingLabel> addFloatingLabel(FloatingLabelOptions options, [Map data]) async {
+    List<FloatingLabel> result = await addFloatingLabels([options], [data]);
+
+    return result.first;
+  }
+
+
+  Future<List<FloatingLabel>> addFloatingLabels(List<FloatingLabelOptions> options, [List<Map> data]) async {
+    final List<FloatingLabelOptions> effectiveOptions = options.map(
+            (o) => FloatingLabelOptions.defaultOptions.copyWith(o)
+    ).toList();
+
+    final symbols = await MapboxGlPlatform.getInstance(_id).addFloatingLabels(effectiveOptions, data);
+    symbols.forEach((s) => _floatingLabels[s.id] = s);
+    notifyListeners();
+    return symbols;
+  }
+
   /// Updates the specified [symbol] with the given [changes]. The symbol must
   /// be a current member of the [symbols] set.
   ///
@@ -394,6 +417,15 @@ class MapboxMapController extends ChangeNotifier {
     assert(_animatedMarkers[symbol.id] == symbol);
     assert(changes != null);
     await MapboxGlPlatform.getInstance(_id).updateAnimatedMarker(symbol, changes);
+    symbol.options = symbol.options.copyWith(changes);
+    notifyListeners();
+  }
+
+  Future<void> updateFloatingLabel(FloatingLabel symbol, FloatingLabelOptions changes) async {
+    assert(symbol != null);
+    assert(_floatingLabels[symbol.id] == symbol);
+    assert(changes != null);
+    await MapboxGlPlatform.getInstance(_id).updateFloatingLabel(symbol, changes);
     symbol.options = symbol.options.copyWith(changes);
     notifyListeners();
   }
@@ -441,6 +473,13 @@ class MapboxMapController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> removeFloatingLabel(FloatingLabel symbol) async {
+    assert(symbol != null);
+    assert(_floatingLabels[symbol.id] == symbol);
+    await _removeFloatingLabels([symbol.id]);
+    notifyListeners();
+  }
+
   /// Removes all [symbols] from the map.
   ///
   /// Change listeners are notified once all symbols have been removed on the
@@ -467,6 +506,11 @@ class MapboxMapController extends ChangeNotifier {
   Future<void> _removeAnimatedMarkers(Iterable<String> ids) async {
     await MapboxGlPlatform.getInstance(_id).removeAnimatedMarkers(ids);
     _animatedMarkers.removeWhere((k, s) => ids.contains(k));
+  }
+
+  Future<void> _removeFloatingLabels(Iterable<String> ids) async {
+    await MapboxGlPlatform.getInstance(_id).removeFloatingLabels(ids);
+    _floatingLabels.removeWhere((k, s) => ids.contains(k));
   }
 
   /// Adds a line to the map, configured using the specified custom [options].

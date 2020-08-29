@@ -235,6 +235,28 @@ class MethodChannelMapboxGl extends MapboxGlPlatform {
   }
 
   @override
+  Future<List<FloatingLabel>> addFloatingLabels(List<FloatingLabelOptions> options, [List<Map> data]) async {
+    final List<dynamic> symbolIds = await _channel.invokeMethod(
+      'custom#addAllFloatingLabels',
+      <String, dynamic>{
+        'options': options.map((o) => o.toJson()).toList(),
+      },
+    );
+    final List<FloatingLabel> symbols = symbolIds.asMap().map(
+            (i, id) => MapEntry(
+            i,
+            FloatingLabel(
+                id,
+                options.elementAt(i),
+                data != null && data.length > i ? data.elementAt(i) : null
+            )
+        )
+    ).values.toList();
+
+    return symbols;
+  }
+
+  @override
   Future<List<Symbol>> addSymbols(List<SymbolOptions> options, [List<Map> data]) async {
     final List<dynamic> symbolIds = await _channel.invokeMethod(
       'symbols#addAll',
@@ -259,6 +281,14 @@ class MethodChannelMapboxGl extends MapboxGlPlatform {
   @override
   Future<void> updateAnimatedMarker(AnimatedMarker symbol, AnimatedMarkerOptions changes) async {
     await _channel.invokeMethod('custom#updateAnimatedMarker', <String, dynamic>{
+      'symbol': symbol.id,
+      'options': changes.toJson(),
+    });
+  }
+
+  @override
+  Future<void> updateFloatingLabel(FloatingLabel symbol, FloatingLabelOptions changes) async {
+    await _channel.invokeMethod('custom#updateFloatingLabel', <String, dynamic>{
       'symbol': symbol.id,
       'options': changes.toJson(),
     });
@@ -293,6 +323,13 @@ class MethodChannelMapboxGl extends MapboxGlPlatform {
   @override
   Future<void> removeAnimatedMarkers(Iterable<String> ids) async {
     await _channel.invokeMethod('custom#removeAllAnimatedMarkers', <String, dynamic>{
+      'symbols': ids.toList(),
+    });
+  }
+
+  @override
+  Future<void> removeFloatingLabels(Iterable<String> ids) async {
+    await _channel.invokeMethod('custom#removeAllFloatingLabels', <String, dynamic>{
       'symbols': ids.toList(),
     });
   }
@@ -520,5 +557,16 @@ class MethodChannelMapboxGl extends MapboxGlPlatform {
     } on PlatformException catch (e) {
       return new Future.error(e);
     }
+  }
+
+  @override
+  Future<Offset> getLabelAnchor(String id) async {
+    final Map<Object, Object> reply = await _channel.invokeMethod('custom#getLabelAnchor', <String, dynamic>{
+      'id': id,
+    });
+
+    final dynamic l = reply['location'];
+
+    return Offset(l[0], l[1]);
   }
 }

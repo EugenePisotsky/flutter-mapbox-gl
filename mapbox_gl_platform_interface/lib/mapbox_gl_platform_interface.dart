@@ -16,5 +16,8 @@ part 'src/location.dart';
 part 'src/method_channel_mapbox_gl.dart';
 part 'src/symbol.dart';
 part 'src/animated_marker.dart';
+part 'src/floating_label.dart';
+part 'src/bitmap_descriptor.dart';
+part 'src/viewport_settings.dart';
 part 'src/ui.dart';
 part 'src/mapbox_gl_platform_interface.dart';

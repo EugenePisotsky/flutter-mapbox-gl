@@ -128,12 +128,20 @@ abstract class MapboxGlPlatform {
     throw UnimplementedError('addSymbols() has not been implemented.');
   }
 
+  Future<List<FloatingLabel>> addFloatingLabels(List<FloatingLabelOptions> options, [List<Map> data]) async {
+    throw UnimplementedError('addFloatingLabels() has not been implemented.');
+  }
+
   Future<List<Symbol>> addSymbols(List<SymbolOptions> options, [List<Map> data]) async {
     throw UnimplementedError('addSymbols() has not been implemented.');
   }
 
   Future<void> updateAnimatedMarker(AnimatedMarker symbol, AnimatedMarkerOptions changes) async {
     throw UnimplementedError('updateSymbol() has not been implemented.');
+  }
+
+  Future<void> updateFloatingLabel(FloatingLabel symbol, FloatingLabelOptions changes) async {
+    throw UnimplementedError('updateFloatingLabel() has not been implemented.');
   }
 
   Future<void> updateSymbol(Symbol symbol, SymbolOptions changes) async {
@@ -146,6 +154,10 @@ abstract class MapboxGlPlatform {
 
   Future<void> removeAnimatedMarkers(Iterable<String> symbolsIds) async {
     throw UnimplementedError('removeSymbol() has not been implemented.');
+  }
+
+  Future<void> removeFloatingLabels(Iterable<String> symbolsIds) async {
+    throw UnimplementedError('removeFloatingLabels() has not been implemented.');
   }
 
   Future<Line> addLine(LineOptions options, [Map data]) async {
@@ -231,6 +243,11 @@ abstract class MapboxGlPlatform {
   }
 
   Future<void> setSymbolTextIgnorePlacement(bool enable) async {
+    throw UnimplementedError(
+        'setSymbolTextIgnorePlacement() has not been implemented.');
+  }
+
+  Future<Offset> getLabelAnchor(String id) async {
     throw UnimplementedError(
         'setSymbolTextIgnorePlacement() has not been implemented.');
   }

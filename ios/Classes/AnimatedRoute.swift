@@ -145,7 +145,7 @@ class AnimatedRoute {
             
             if (prevCoords != coords) {
                 let bearing = getBearingBetweenTwoPoints1(point1: prevCoords, point2: coords)
-                animatedMarker.updateRotation(rotation: bearing, duration: 2.0)
+                animatedMarker.updateRotation(rotation: bearing, duration: 1.0)
             }
             
             animatedMarker.updateCoordinates(coords: coords, duration: speed)

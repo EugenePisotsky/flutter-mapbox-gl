@@ -23,6 +23,8 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
     
     private var animatedMarkers: [AnimatedMarker] = []
     private var animatedRoute: AnimatedRoute?
+    
+    private var floatingLabels: [FloatingLabel] = []
 
     func view() -> UIView {
         return mapView
@@ -405,6 +407,46 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             } else {
                 result(nil)
             }
+        case "custom#addAllFloatingLabels":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+
+            if let options = arguments["options"] as? [[String: Any]] {
+                var symbols: [FloatingLabel] = [];
+                for o in options {
+                    if let symbol = getFloatingLabelForOptions(options: o)  {
+                        symbols.append(symbol)
+                        floatingLabels.append(symbol)
+                    }
+                }
+
+                result(symbols.map { $0.id })
+            } else {
+                result(nil)
+            }
+        case "custom#updateFloatingLabel":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let symbolId = arguments["symbol"] as? String else { return }
+
+            for symbol in floatingLabels {
+                if symbol.id == symbolId {
+                    Convert.interpretFloatingLabelOptions(options: arguments["options"], delegate: symbol)
+                    break;
+                }
+            }
+            result(nil)
+        case "custom#removeAllFloatingLabels":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let symbolIds = arguments["symbols"] as? [String] else { return }
+
+            for symbol in floatingLabels {
+                if symbolIds.contains(symbol.id) {
+                    symbol.destroy()
+                }
+            }
+            
+            floatingLabels.removeAll { symbolIds.contains($0.id) }
+            
+            result(nil)
         case "custom#updateAnimatedMarker":
             guard let arguments = methodCall.arguments as? [String: Any] else { return }
             guard let symbolId = arguments["symbol"] as? String else { return }
@@ -459,6 +501,16 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             let coords = marker.currentLocation()
             
             result(["latitude": coords?.latitude, "longitude": coords?.longitude])
+        case "custom#getLabelAnchor":
+            guard let arguments = methodCall.arguments as? [String: Any] else { return }
+            guard let id = arguments["id"] as? String else { return }
+            guard let floatingLabel = (floatingLabels.first { $0.id == id }) else { return }
+            
+            let position = floatingLabel.getAnchor();
+            
+            result([
+                "location": position
+            ])
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -479,6 +531,33 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
             symbol.create(coords: coordinate)
             Convert.interpretAnimatedMarkerOptions(options: options, delegate: symbol)
             symbol.addToMap()
+            return symbol
+        }
+        return nil
+    }
+    
+    private func getFloatingLabelForOptions(options: [String: Any]) -> FloatingLabel? {
+        guard let id = options["id"] as? String else { return nil }
+        guard let icon = options["icon"] as? String else { return nil }
+        guard let width = options["width"] as? Float else { return nil }
+        guard let height = options["height"] as? Float else { return nil }
+        let imageSource = options["image"] as? [Any]
+        
+        guard let image = Convert.toImage(data: imageSource) else { return nil }
+        
+        if let geometry = options["geometry"] as? [Double] {
+            // Convert geometry to coordinate and create symbol.
+            let coordinate = CLLocationCoordinate2DMake(geometry[0], geometry[1])
+            let symbol = FloatingLabel(
+                mapInstance: mapView,
+                id: id,
+                image: image,
+                location: coordinate,
+                width: width,
+                height: height,
+                icon: icon
+            )
+
             return symbol
         }
         return nil
@@ -738,6 +817,8 @@ class MapboxMapController: NSObject, FlutterPlatformView, MGLMapViewDelegate, Ma
         if let channel = channel {
             channel.invokeMethod("camera#onIdle", arguments: []);
         }
+        
+        floatingLabels.forEach { $0.updatePosition() }
     }
     
     /*
