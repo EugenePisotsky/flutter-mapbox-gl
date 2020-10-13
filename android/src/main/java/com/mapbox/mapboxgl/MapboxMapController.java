@@ -74,7 +74,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+import static com.mapbox.mapboxgl.Convert.toMap;
 import static com.mapbox.mapboxgl.MapboxMapsPlugin.CREATED;
 import static com.mapbox.mapboxgl.MapboxMapsPlugin.DESTROYED;
 import static com.mapbox.mapboxgl.MapboxMapsPlugin.PAUSED;
@@ -131,6 +134,8 @@ final class MapboxMapController
   private LocalizationPlugin localizationPlugin;
   private Style style;
   private List<AnimatedMarker> animatedMarkers = new ArrayList<AnimatedMarker>();
+  private List<FloatingLabel> floatingLabels = new ArrayList<FloatingLabel>();
+  private MapConfiguration mapConfiguration = new MapConfiguration();
   private AnimatedRoute animatedRoute;
 
   MapboxMapController(
@@ -326,7 +331,7 @@ final class MapboxMapController
     @Override
     public void onStyleLoaded(@NonNull Style style) {
       MapboxMapController.this.style = style;
-      // enableLineManager(style);
+      enableLineManager(style);
       // enableSymbolManager(style);
       // enableCircleManager(style);
       if (myLocationEnabled) {
@@ -414,7 +419,7 @@ final class MapboxMapController
         result.success(null);
         break;
       }
-	    case "map#matchMapLanguageWithDeviceDefault": {
+	  case "map#matchMapLanguageWithDeviceDefault": {
         try {
 		      localizationPlugin.matchMapLanguageWithDeviceDefault();
 			    result.success(null);
@@ -424,7 +429,7 @@ final class MapboxMapController
 		    }
         break;
       }
-	    case "map#setMapLanguage": {
+	  case "map#setMapLanguage": {
   	    final String language = call.argument("language");
         try {
 		      localizationPlugin.setMapLanguage(language);
@@ -435,6 +440,36 @@ final class MapboxMapController
 		    }
         break;
       }
+      case "map#updateContentInsets": {
+        Log.e(TAG, "Insets");
+
+        final Map<String, Float> bounds = call.argument("bounds");
+
+        final int leftInt = Convert.toInt(bounds.get("left"));
+        final int topInt = Convert.toInt(bounds.get("top"));
+        final int rightInt = Convert.toInt(bounds.get("right"));
+        final int bottomInt = Convert.toInt(bounds.get("bottom"));
+
+        final double left = leftInt * density;
+        final double top = topInt * density;
+        final double right = rightInt * density;
+        final double bottom = bottomInt * density;
+
+        Log.e(TAG, "RNM " + leftInt + " / " + topInt + " / " + rightInt + " / " + bottomInt);
+        // mapboxMap.setCameraPosition(new CameraPosition.Builder().padding(left, top, right, bottom).build());
+        mapboxMap.getUiSettings().setAttributionMargins(leftInt, topInt, rightInt, bottomInt);
+        mapConfiguration.setPadding(top, bottom, left, right);
+        // mapboxMap.setPadding(leftInt, topInt, rightInt, bottomInt);
+
+        /*mapView.setPadding(
+                (int) left,
+                (int) top,
+                (int) right,
+                (int) bottom
+        );*/
+        result.success(null);
+        break;
+      }
       case "map#getVisibleRegion": {
         Map<String, Object> reply = new HashMap<>();
         VisibleRegion visibleRegion = mapboxMap.getProjection().getVisibleRegion();
@@ -443,11 +478,27 @@ final class MapboxMapController
         result.success(reply);
         break;
       }
+      case "map#toScreenLocation": {
+        Map<String, Object> reply = new HashMap<>();
+        PointF pointf = mapboxMap.getProjection().toScreenLocation(new LatLng(call.argument("latitude"),call.argument("longitude")));
+        reply.put("x", pointf.x / density);
+        reply.put("y", pointf.y / density);
+        result.success(reply);
+        break;
+      }
+      case "map#toLatLng": {
+        Map<String, Object> reply = new HashMap<>();
+        LatLng latlng = mapboxMap.getProjection().fromScreenLocation(new PointF( ((Double) call.argument("x")).floatValue(), ((Double) call.argument("y")).floatValue()));
+        reply.put("latitude", latlng.getLatitude());
+        reply.put("longitude", latlng.getLongitude());
+        result.success(reply);
+        break;
+      }
       case "camera#move": {
-        final CameraUpdate cameraUpdate = Convert.toCameraUpdate(call.argument("cameraUpdate"), mapboxMap, density);
+        final CameraUpdate cameraUpdate = Convert.toCameraUpdate(call.argument("cameraUpdate"), mapboxMap, density, mapConfiguration);
         if (cameraUpdate != null) {
           // camera transformation not handled yet
-          mapboxMap.moveCamera(cameraUpdate, new OnCameraMoveFinishedListener(){
+          mapboxMap.easeCamera(cameraUpdate, new OnCameraMoveFinishedListener(){
             @Override
             public void onFinish() {
               super.onFinish();
@@ -461,14 +512,14 @@ final class MapboxMapController
             }
           });
 
-         // moveCamera(cameraUpdate);
+         moveCamera(cameraUpdate);
         }else {
           result.success(false);
         }
         break;
       }
       case "camera#animate": {
-        final CameraUpdate cameraUpdate = Convert.toCameraUpdate(call.argument("cameraUpdate"), mapboxMap, density);
+        final CameraUpdate cameraUpdate = Convert.toCameraUpdate(call.argument("cameraUpdate"), mapboxMap, density, mapConfiguration);
         final Integer duration = call.argument("duration");
 
         final OnCameraMoveFinishedListener onCameraMoveFinishedListener = new OnCameraMoveFinishedListener(){
@@ -759,6 +810,47 @@ final class MapboxMapController
         result.success(newSymbolIds);
         break;
       }
+      case "custom#addAllFloatingLabels": {
+        List<String> newSymbolIds = new ArrayList<String>();
+        final List<Object> options = call.argument("options");
+
+        if (options != null) {
+          for (Object o : options) {
+            final FloatingLabel label = Convert.createFloatingLabel(o, mapView, mapboxMap, density, registrar.activity(), mapConfiguration);
+            floatingLabels.add(label);
+
+            newSymbolIds.add(label.getId());
+          }
+        }
+        result.success(newSymbolIds);
+        break;
+      }
+      case "custom#updateFloatingLabel": {
+        final String symbolId = call.argument("symbol");
+        for (FloatingLabel marker : floatingLabels) {
+          if (marker.getId().equals(symbolId)) {
+            Convert.interpretFloatingLabelOptions(call.argument("options"), marker);
+          }
+        }
+        result.success(null);
+        break;
+      }
+      case "custom#removeAllFloatingLabels": {
+        final ArrayList<String> symbolIds = call.argument("symbols");
+
+        List<FloatingLabel> toRemove = new ArrayList<FloatingLabel>();
+        for (FloatingLabel marker : floatingLabels) {
+          for(String symbolId : symbolIds){
+            if (symbolId.equals(marker.getId())) {
+              marker.destroy();
+              toRemove.add(marker);
+            }
+          }
+        }
+        floatingLabels.removeAll(toRemove);
+        result.success(null);
+        break;
+      }
       case "custom#updateAnimatedMarker": {
         final String symbolId = call.argument("symbol");
         for (AnimatedMarker marker : animatedMarkers) {
@@ -826,6 +918,26 @@ final class MapboxMapController
         result.success(null);
         break;
       }
+      case "custom#getLabelAnchor": {
+        final String id = (String) call.argument("id");
+
+        for (FloatingLabel label : floatingLabels) {
+          if (label.getId().equals(id)) {
+            final PointF position = label.getAnchor();
+
+            Map<String, Object> reply = new HashMap<>();
+            List<Float> json = new ArrayList<>();
+            json.add(position.x);
+            json.add(position.y);
+
+            reply.put("location", json);
+
+            result.success(reply);
+            return;
+          }
+        }
+        break;
+      }
       default:
         result.notImplemented();
     }
@@ -851,6 +963,10 @@ final class MapboxMapController
 
   @Override
   public void onCameraIdle() {
+    for (FloatingLabel marker : floatingLabels) {
+      marker.updatePosition();
+    }
+
     methodChannel.invokeMethod("camera#onIdle", Collections.singletonMap("map", id));
   }
 

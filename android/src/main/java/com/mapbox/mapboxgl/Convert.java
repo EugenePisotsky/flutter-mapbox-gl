@@ -4,6 +4,9 @@
 
 package com.mapbox.mapboxgl;
 
+import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Point;
 
 import com.mapbox.mapboxsdk.camera.CameraPosition;
@@ -12,6 +15,7 @@ import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.geometry.LatLngBounds;
 import com.mapbox.mapboxsdk.log.Logger;
+import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 
 import java.util.ArrayList;
@@ -53,9 +57,10 @@ class Convert {
     return (Boolean) o;
   }
 
-  static CameraPosition toCameraPosition(Object o) {
+  static CameraPosition toCameraPosition(Object o, MapConfiguration mapConfiguration) {
     final Map<?, ?> data = toMap(o);
     final CameraPosition.Builder builder = new CameraPosition.Builder();
+    builder.padding(mapConfiguration.leftPadding, mapConfiguration.topPadding, mapConfiguration.rightPadding, mapConfiguration.bottomPadding);
     builder.bearing(toFloat(data.get("bearing")));
     builder.target(toLatLng(data.get("target")));
     builder.tilt(toFloat(data.get("tilt")));
@@ -67,16 +72,23 @@ class Convert {
     return toString(toList(o).get(0)).equals("scrollBy");
   }
 
-  static CameraUpdate toCameraUpdate(Object o, MapboxMap mapboxMap, float density) {
+  static CameraUpdate toCameraUpdate(Object o, MapboxMap mapboxMap, float density, MapConfiguration mapConfiguration) {
     final List<?> data = toList(o);
     switch (toString(data.get(0))) {
       case "newCameraPosition":
-        return CameraUpdateFactory.newCameraPosition(toCameraPosition(data.get(1)));
+        return CameraUpdateFactory.newCameraPosition(toCameraPosition(data.get(1), mapConfiguration));
       case "newLatLng":
         return CameraUpdateFactory.newLatLng(toLatLng(data.get(1)));
       case "newLatLngBounds":
+        final List<?> padding = toList(data.get(2));
+
+        final double left = toPixels(toDouble(padding.get(1)), density) + mapConfiguration.leftPadding;
+        final double top = toPixels(toDouble(padding.get(0)), density) + mapConfiguration.topPadding;
+        final double right = toPixels(toDouble(padding.get(3)), density) + mapConfiguration.rightPadding;
+        final double bottom = toPixels(toDouble(padding.get(2)), density) + mapConfiguration.bottomPadding;
+
         return CameraUpdateFactory.newLatLngBounds(
-          toLatLngBounds(data.get(1)), toPixels(data.get(2), density));
+          toLatLngBounds(data.get(1)), (int) left, (int) top, (int) right, (int) bottom);
       case "newLatLngZoom":
         return CameraUpdateFactory.newLatLngZoom(toLatLng(data.get(1)), toFloat(data.get(2)));
       case "scrollBy":
@@ -106,7 +118,7 @@ class Convert {
     }
   }
 
-  private static double toDouble(Object o) {
+  public static double toDouble(Object o) {
     return ((Number) o).doubleValue();
   }
 
@@ -294,6 +306,55 @@ class Convert {
       Logger.d("[MB]", arr.toString());
       marker.updateRotation(toFloat(arr.get(0)), toInt(arr.get(1)));
     }
+  }
+
+  static void interpretFloatingLabelOptions(Object o, FloatingLabel marker) {
+    final Map<?, ?> data = toMap(o);
+    final Object iconImage = data.get("icon");
+    if (iconImage != null) {
+      marker.updateIcon(toString(iconImage));
+    }
+
+    final Object geometry = data.get("geometry");
+    if (geometry != null) {
+      final List<?> arr = toList(geometry);
+      LatLng latLng = toLatLng(geometry);
+      marker.updateSourceCoordinates(latLng);
+    }
+
+    final Object imageData = data.get("image");
+    if (imageData != null) {
+      final float width = toFloat(data.get("width"));
+      final float height = toFloat(data.get("height"));
+      final List<?> image = toList(imageData);
+      marker.updateLabel(width, height, toBitmap(image));
+    }
+  }
+
+  static FloatingLabel createFloatingLabel(Object o, MapView mapView, MapboxMap mapboxMap, float density, Activity activity, MapConfiguration mapConfiguration) {
+    final Map<?, ?> data = toMap(o);
+
+    final String id = toString(data.get("id"));
+    final List<?> bitmapData = toList(data.get("image"));
+    final Bitmap bitmap = getBitmapFromBytes(bitmapData);
+    final LatLng location = toLatLng(data.get("geometry"));
+    final float width = toFloat(data.get("width"));
+    final float height = toFloat(data.get("height"));
+    final String icon = toString(data.get("icon"));
+
+    return new FloatingLabel(
+            mapView,
+            mapboxMap,
+            id,
+            bitmap,
+            location,
+            width,
+            height,
+            icon,
+            density,
+            activity,
+            mapConfiguration
+    );
   }
 
   static void interpretSymbolOptions(Object o, SymbolOptionsSink sink) {
@@ -499,6 +560,29 @@ class Convert {
     if (draggable != null) {
       Logger.e(TAG, "SetDraggable");
       sink.setDraggable(toBoolean(draggable));
+    }
+  }
+
+  public static Bitmap getBitmapFromBytes(List<?> data) {
+    if (data.size() == 2) {
+      try {
+        return toBitmap(data.get(1));
+      } catch (Exception e) {
+        throw new IllegalArgumentException("Unable to interpret bytes as a valid image.", e);
+      }
+    } else {
+      throw new IllegalArgumentException(
+              "fromBytes should have exactly one argument, the bytes. Got: " + data.size());
+    }
+  }
+
+  private static Bitmap toBitmap(Object o) {
+    byte[] bmpData = (byte[]) o;
+    Bitmap bitmap = BitmapFactory.decodeByteArray(bmpData, 0, bmpData.length);
+    if (bitmap == null) {
+      throw new IllegalArgumentException("Unable to decode bytes as a valid bitmap.");
+    } else {
+      return bitmap;
     }
   }
 }

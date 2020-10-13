@@ -172,7 +172,7 @@ class Convert {
             let newCoord = CLLocationCoordinate2DMake(geometry[0], geometry[1])
             delegate.updateSourceCoordinates(coords: newCoord)
         }
-        if let image = options["image"] as? [Double] {
+        if let image = options["image"] as? [Any] {
             delegate.updateLabel(width: options["width"] as! Float, height: options["height"] as! Float, image: toImage(data: image) ?? delegate.image)
         }
         if let icon = options["icon"] as? String {

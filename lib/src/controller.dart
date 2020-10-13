@@ -13,6 +13,7 @@ typedef void OnCameraTrackingDismissedCallback();
 typedef void OnCameraTrackingChangedCallback(MyLocationTrackingMode mode);
 
 typedef void OnCameraIdleCallback();
+typedef void OnCameraMoveStarted();
 
 typedef void OnMapIdleCallback();
 
@@ -39,6 +40,7 @@ class MapboxMapController extends ChangeNotifier {
       this.onCameraTrackingDismissed,
       this.onCameraTrackingChanged,
       this.onCameraIdle,
+      this.onCameraMoveStarted,
       this.onMapIdle})
       : assert(_id != null) {
     _cameraPosition = initialCameraPosition;
@@ -75,6 +77,9 @@ class MapboxMapController extends ChangeNotifier {
 
     MapboxGlPlatform.getInstance(_id).onCameraMoveStartedPlatform.add((_) {
       _isCameraMoving = true;
+      if (onCameraMoveStarted != null) {
+        onCameraMoveStarted();
+      }
       notifyListeners();
     });
 
@@ -142,6 +147,7 @@ class MapboxMapController extends ChangeNotifier {
       OnCameraTrackingDismissedCallback onCameraTrackingDismissed,
       OnCameraTrackingChangedCallback onCameraTrackingChanged,
       OnCameraIdleCallback onCameraIdle,
+      OnCameraMoveStarted onCameraMoveStarted,
       OnMapIdleCallback onMapIdle}) async {
     assert(id != null);
     await MapboxGlPlatform.getInstance(id).initPlatform(id);
@@ -152,6 +158,7 @@ class MapboxMapController extends ChangeNotifier {
         onCameraTrackingDismissed: onCameraTrackingDismissed,
         onCameraTrackingChanged: onCameraTrackingChanged,
         onCameraIdle: onCameraIdle,
+        onCameraMoveStarted: onCameraMoveStarted,
         onMapIdle: onMapIdle);
   }
 
@@ -164,6 +171,7 @@ class MapboxMapController extends ChangeNotifier {
   final OnCameraTrackingChangedCallback onCameraTrackingChanged;
 
   final OnCameraIdleCallback onCameraIdle;
+  final OnCameraMoveStarted onCameraMoveStarted;
 
   final OnMapIdleCallback onMapIdle;
 
@@ -480,6 +488,11 @@ class MapboxMapController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> removeFloatingLabels(List<String> symbols) async {
+    await _removeFloatingLabels(symbols);
+    notifyListeners();
+  }
+
   /// Removes all [symbols] from the map.
   ///
   /// Change listeners are notified once all symbols have been removed on the
@@ -770,4 +783,21 @@ class MapboxMapController extends ChangeNotifier {
     await MapboxGlPlatform.getInstance(_id)
         .setSymbolTextIgnorePlacement(enable);
   }
+
+  /// Returns the point on the screen that corresponds to a geographical coordinate ([latLng]). The screen location is in screen pixels (not display pixels) relative to the top left of the map (not of the whole screen)
+  /// 
+  /// Note: The resulting x and y coordinates are rounded to [int] on web, on other platforms they may differ very slightly (in the range of about 10^-10) from the actual nearest screen coordinate.
+  /// You therefore might want to round them appropriately, depending on your use case.
+  /// 
+  /// Returns null if [latLng] is not currently visible on the map.
+  Future<Point> toScreenLocation(LatLng latLng) async{
+    return MapboxGlPlatform.getInstance(_id).toScreenLocation(latLng);
+  }
+
+  /// Returns the geographic location (as [LatLng]) that corresponds to a point on the screen. The screen location is specified in screen pixels (not display pixels) relative to the top left of the map (not the top left of the whole screen).
+  Future<LatLng> toLatLng(Point screenLocation) async{
+    return MapboxGlPlatform.getInstance(_id).toLatLng(screenLocation);
+  }
+
+  
 }

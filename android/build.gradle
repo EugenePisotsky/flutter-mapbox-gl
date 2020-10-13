@@ -17,6 +17,19 @@ rootProject.allprojects {
         google()
         jcenter()
         mavenCentral()
+        maven {
+            url 'https://api.mapbox.com/downloads/v2/releases/maven'
+            authentication {
+                basic(BasicAuthentication)
+            }
+            credentials {
+                // Do not change the username below.
+                // This should always be `mapbox` (not your username).
+                username = 'mapbox'
+                // Use the secret token you stored in gradle.properties as the password
+                password = "sk.eyJ1IjoicmV2YW5zY3JpcHQiLCJhIjoiY2tmZndiNnZvMGVoZDJ5bGQ0ZHNxMHRvMCJ9.KWBKE0FN_YgSdoDH5Y6rMA"
+            }
+        }
     }
 }
 
@@ -37,7 +50,7 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
     dependencies {
-        implementation "com.mapbox.mapboxsdk:mapbox-android-sdk:9.2.0"
+        implementation "com.mapbox.mapboxsdk:mapbox-android-sdk:9.4.0"
         implementation "com.mapbox.mapboxsdk:mapbox-android-plugin-annotation-v9:0.8.0"
         implementation "com.mapbox.mapboxsdk:mapbox-android-plugin-localization-v9:0.12.0"
         implementation 'com.mapbox.mapboxsdk:mapbox-sdk-turf:5.4.1'
